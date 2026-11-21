@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Shout Meter!</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{margin:0;height:100%;overflow:hidden;font-family:"Comic Sans MS","Chalkboard SE","Trebuchet MS",sans-serif;background:linear-gradient(#2b1055,#7597de);color:#fff}
+.screen{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;text-align:center}
+.screen.on{display:flex}
+h1{font-size:clamp(40px,11vw,76px);margin:0;color:#ffe14d;text-shadow:4px 4px 0 #ff3d7f}
+h2{font-size:clamp(28px,8vw,48px);margin:0}
+p{font-size:clamp(17px,4.5vw,22px);margin:0}
+button{font-family:inherit;font-size:clamp(22px,6vw,32px);padding:16px 30px;border:none;border-radius:999px;color:#fff;cursor:pointer;box-shadow:0 6px 0 rgba(0,0,0,.3);min-width:260px}
+button:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.3)}
+.pink{background:#ff3d7f}.green{background:#22b573}.yellow{background:#ffb800;color:#432}.grey{background:#8a8fb8}
+.names{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.names input{font-family:inherit;font-size:22px;width:150px;padding:10px;border-radius:14px;border:4px solid #fff;text-align:center}
+#n1{border-color:#ff3d7f}#n2{border-color:#22b573}
+#play{justify-content:flex-start;padding-top:14px}
+#who{font-size:clamp(26px,7vw,40px);font-weight:bold}
+#round{font-size:18px;opacity:.85}
+#meterWrap{position:relative;flex:1;width:min(44vw,180px);max-height:62vh;margin:6px 0}
+#tube{position:absolute;inset:0;border:6px solid #fff;border-radius:40px;overflow:hidden;background:rgba(0,0,0,.35)}
+#fill{position:absolute;left:0;right:0;bottom:0;height:0%;background:linear-gradient(to top,#22b573,#ffe14d 55%,#ff8a00 75%,#ff2d55);background-size:100% var(--h);background-position:bottom}
+#peak{position:absolute;left:-14px;right:-14px;height:6px;background:#fff;bottom:0%;border-radius:3px;box-shadow:0 0 8px #fff}
+#face{position:absolute;top:-8px;right:-70px;font-size:56px}
+.ticks{position:absolute;left:-46px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:space-between;font-size:14px;opacity:.8}
+#big{font-size:clamp(60px,20vw,120px);font-weight:bold;line-height:1;text-shadow:4px 4px 0 rgba(0,0,0,.3)}
+#msg{font-size:clamp(22px,6vw,34px);min-height:1.3em}
+#bar{width:min(80vw,400px);height:14px;background:rgba(255,255,255,.25);border-radius:7px;overflow:hidden}
+#barIn{height:100%;width:0;background:#ffe14d}
+table{font-size:clamp(18px,5vw,24px);border-collapse:collapse}
+td,th{padding:6px 12px}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:20}
+.small{font-size:15px;opacity:.8;max-width:440px}
+</style></head><body>
+<canvas id="confetti"></canvas>
+
+<div class="screen on" id="menu">
+  <h1>📣 SHOUT<br>METER! 📣</h1>
+  <p>How LOUD can you shout?</p>
+  <button class="pink" onclick="startSolo()">🙋 Just Me</button>
+  <button class="green" onclick="show('setup')">🥊 Compete!</button>
+  <p class="small">The mic sound stays on this phone. Nothing is recorded or sent anywhere.</p>
+</div>
+
+<div class="screen" id="setup">
+  <h2>Who's playing?</h2>
+  <div class="names"><input id="n1" value="Yu Xin" maxlength="10"><input id="n2" value="Nephew" maxlength="10"></div>
+  <p>3 rounds each, taking turns.<br>Score = loudest moment + how long you stay LOUD!</p>
+  <button class="green" onclick="startCompete()">▶️ Start!</button>
+  <button class="grey" onclick="show('menu')">⬅️ Back</button>
+</div>
+
+<div class="screen" id="ready">
+  <p id="round2"></p>
+  <h2 id="readyWho"></h2>
+  <p>Get ready to SHOUT!</p>
+  <button class="yellow" onclick="beginTurn()">🎤 I'm Ready!</button>
+</div>
+
+<div class="screen" id="play">
+  <div id="who"></div><div id="round"></div>
+  <div id="meterWrap"><div class="ticks"><span>100</span><span>75</span><span>50</span><span>25</span><span>0</span></div>
+    <div id="tube"><div id="fill"></div></div><div id="peak"></div><div id="face">🤫</div></div>
+  <div id="big">3</div>
+  <div id="msg"></div>
+  <div id="bar"><div id="barIn"></div></div>
+</div>
+
+<div class="screen" id="turnEnd">
+  <h2 id="teWho"></h2>
+  <div id="teScore" style="font-size:clamp(64px,20vw,120px);font-weight:bold;color:#ffe14d"></div>
+  <p id="teDetail"></p>
+  <button class="yellow" id="teNext" onclick="next()">Next ➡️</button>
+</div>
+
+<div class="screen" id="win">
+  <div style="font-size:90px" id="winEmoji">🏆</div>
+  <h1 id="winText"></h1>
+  <table id="tbl"></table>
+  <button class="pink" onclick="again()">🔁 Play Again</button>
+  <button class="grey" onclick="show('menu')">🏠 Menu</button>
+</div>
+
+<div class="screen" id="err">
+  <h2>🎤 I can't hear you!</h2>
+  <p id="errText"></p>
+  <button class="yellow" onclick="show('menu')">OK</button>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));$(id).classList.add('on')}
+const SHOUT_SECS=4, ROUNDS=3, LOUD=60;
+let ac,analyser,buf,stream,mode,names,turn,scores,cur,raf;
+
+async function initMic(){
+  if(analyser)return true;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){fail("This browser won't let the page use the microphone from here. Open the game from its web link in Chrome.");return false}
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    ac=new (window.AudioContext||window.webkitAudioContext)();
+    const src=ac.createMediaStreamSource(stream);analyser=ac.createAnalyser();analyser.fftSize=1024;src.connect(analyser);
+    buf=new Float32Array(analyser.fftSize);return true;
+  }catch(e){fail("Tap <b>Allow</b> when Chrome asks to use the microphone. If you said no before, tap the icon left of the web address, turn Microphone on, and reload.");return false}
+}
+function fail(t){$('errText').innerHTML=t;show('err')}
+function level(){analyser.getFloatTimeDomainData(buf);let s=0;for(const v of buf)s+=v*v;const rms=Math.sqrt(s/buf.length);
+  const db=20*Math.log10(rms+1e-9);return Math.max(0,Math.min(100,(db+50)/45*100))}// -50dB→0, -5dB→100
+
+function snd(f1,f2,d,type="triangle",vol=.25){try{const a=ac||new (window.AudioContext||window.webkitAudioContext)();ac=a;const o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.setValueAtTime(f1,a.currentTime);o.frequency.exponentialRampToValueAtTime(f2,a.currentTime+d);g.gain.setValueAtTime(vol,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d);o.connect(g).connect(a.destination);o.start();o.stop(a.currentTime+d)}catch(e){}}
+const beep=()=>snd(660,660,.15,"square",.15),go=()=>snd(880,1760,.3,"square",.2);
+function fanfare(){[523,659,784,1047,784,1047].forEach((f,i)=>setTimeout(()=>snd(f,f,.28),i*160))}
+
+async function startSolo(){if(!await initMic())return;mode=1;names=["You"];scores=[[]];turn=0;show('ready');readyText()}
+async function startCompete(){if(!await initMic())return;mode=2;names=[$('n1').value.trim()||"Player 1",$('n2').value.trim()||"Player 2"];scores=[[],[]];turn=0;show('ready');readyText()}
+function who(){return mode===1?0:turn%2}
+function rnd(){return mode===1?scores[0].length+1:Math.floor(turn/2)+1}
+function readyText(){$('round2').textContent=mode===1?"Shout #"+rnd():"Round "+rnd()+" of "+ROUNDS;$('readyWho').textContent=(mode===2?(who()?"💚 ":"🩷 "):"")+names[who()]+"'s turn!"}
+
+function beginTurn(){if(ac.state==="suspended")ac.resume();show('play');
+  $('who').textContent=$('readyWho').textContent;$('round').textContent=$('round2').textContent;
+  $('who').style.color=mode===2?(who()?"#5dffb0":"#ff8fb6"):"#fff";
+  cur={peak:0,loud:0};setMeter(0);$('peak').style.bottom="0%";$('barIn').style.width="0";$('msg').textContent="";
+  let c=3;$('big').textContent=c;beep();cancelAnimationFrame(raf);idle();
+  const iv=setInterval(()=>{c--;if(c>0){$('big').textContent=c;beep()}else{clearInterval(iv);$('big').textContent="SHOUT!";go();shout()}},800)}
+function idle(){raf=requestAnimationFrame(()=>{setMeter(level()*.6);idle()})}
+let smooth=0;
+function setMeter(v){smooth=smooth*.6+v*.4;const tube=$('tube').clientHeight;$('fill').style.setProperty('--h',tube+'px');$('fill').style.height=smooth+"%";
+  $('face').textContent=smooth<15?"🤫":smooth<35?"🙂":smooth<55?"😮":smooth<75?"😆":smooth<90?"🤪":"🤯";}
+function shout(){cancelAnimationFrame(raf);const t0=performance.now();let last=t0;
+  const loop=t=>{const v=level(),dt=(t-last)/1000;last=t;setMeter(v);
+    if(smooth>cur.peak){cur.peak=smooth;$('peak').style.bottom=cur.peak+"%"}
+    if(smooth>=LOUD)cur.loud+=dt;
+    $('msg').textContent=smooth>=90?"WOW!!! 🔥":smooth>=LOUD?"LOUDER!":"Come on, shout!";
+    const el=(t-t0)/1000;$('barIn').style.width=Math.min(100,el/SHOUT_SECS*100)+"%";
+    $('big').textContent=Math.round(smooth);
+    if(el<SHOUT_SECS)raf=requestAnimationFrame(loop);else endTurn()};
+  raf=requestAnimationFrame(loop)}
+function endTurn(){const peak=Math.round(cur.peak),bonus=Math.round(Math.min(cur.loud,SHOUT_SECS)/SHOUT_SECS*50),total=peak+bonus;
+  scores[who()].push(total);snd(300,900,.3);
+  $('teWho').textContent=names[who()]+" scored";$('teScore').textContent=total;
+  $('teDetail').innerHTML="Loudest: <b>"+peak+"</b> &nbsp;+&nbsp; Loud for "+cur.loud.toFixed(1)+"s: <b>+"+bonus+"</b>";
+  const lastTurn=mode===2&&turn===ROUNDS*2-1;$('teNext').textContent=mode===1?"🎤 Try Again":lastTurn?"🏆 See Winner!":"Next ➡️";
+  if(mode===1)$('teDetail').innerHTML+="<br>Your best: <b>"+Math.max(...scores[0])+"</b>";
+  show('turnEnd');if(total>=120)confetti(1500)}
+function next(){if(mode===1){show('ready');readyText();return}turn++;if(turn>=ROUNDS*2){winner();return}show('ready');readyText()}
+function winner(){const t=scores.map(a=>a.reduce((x,y)=>x+y,0));
+  let txt,em;if(t[0]===t[1]){txt="It's a TIE!";em="🤝"}else{const w=t[0]>t[1]?0:1;txt=names[w]+" WINS!";em="🏆"}
+  $('winText').textContent=txt;$('winEmoji').textContent=em;
+  let h="<tr><th></th>";for(let r=1;r<=ROUNDS;r++)h+="<th>R"+r+"</th>";h+="<th>Total</th></tr>";
+  [0,1].forEach(p=>{h+="<tr><td>"+(p?"💚 ":"🩷 ")+names[p]+"</td>"+scores[p].map(s=>"<td>"+s+"</td>").join("")+"<td><b>"+t[p]+"</b></td></tr>"});
+  $('tbl').innerHTML=h;show('win');fanfare();confetti(4000)}
+function again(){mode===2?startCompete():startSolo()}
+
+function confetti(ms){const c=$('confetti'),x=c.getContext('2d');c.width=innerWidth;c.height=innerHeight;
+  const P=Array.from({length:150},()=>({x:Math.random()*c.width,y:-20-Math.random()*c.height,vy:2+Math.random()*4,vx:-2+Math.random()*4,r:Math.random()*6.28,s:6+Math.random()*8,col:`hsl(${Math.random()*360},90%,60%)`}));
+  const end=performance.now()+ms;(function f(t){x.clearRect(0,0,c.width,c.height);P.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.r+=.1;x.save();x.translate(p.x,p.y);x.rotate(p.r);x.fillStyle=p.col;x.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);x.restore()});
+  if(t<end)requestAnimationFrame(f);else x.clearRect(0,0,c.width,c.height)})(performance.now())}
+</script></body></html>
