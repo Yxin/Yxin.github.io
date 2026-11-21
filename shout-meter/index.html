@@ -49,6 +49,10 @@ button:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.3)}
 .mini .crown{position:absolute;font-size:36px;transform:translate(-50%,-10%)}
 .stars{font-size:clamp(30px,9vw,44px);min-height:1.2em}
 #scoreRows{display:flex;flex-direction:column;gap:8px}
+.av{display:inline-block;border-radius:50%;border:6px solid;overflow:hidden;background:#fff;vertical-align:middle;box-shadow:0 4px 0 rgba(0,0,0,.25)}
+.av svg{width:100%;height:100%;display:block}
+#rider{position:absolute;left:-18px;top:-34px}
+.pick{display:flex;gap:22px}.pick .av{cursor:pointer}
 #confetti{position:fixed;inset:0;pointer-events:none;z-index:20}
 </style></head><body>
 <canvas id="confetti"></canvas>
@@ -56,24 +60,29 @@ button:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.3)}
 <div class="screen on" id="menu">
   <h1>🚀 SHOUT<br>ROCKET! 🚀</h1>
   <p>Shout LOUD to fly your rocket to the moon! 🌙</p>
-  <button class="pink" onclick="startSolo()">🙋 Just Me</button>
+  <button class="pink" onclick="pickSolo()">🙋 Just Me</button>
   <button class="green" onclick="show('setup')">🥊 Compete!</button>
   <div class="diff" id="diff"><button onclick="setDiff(0)">🐣</button><button onclick="setDiff(1)" class="sel">🐯</button><button onclick="setDiff(2)">🦖</button></div>
   <p class="small">🐣 easy · 🐯 normal · 🦖 super hard<br>Mic sound stays on this phone. Nothing is recorded or sent anywhere.</p>
 </div>
 
+<div class="screen" id="pick">
+  <h2>Who's flying? 🚀</h2>
+  <div class="pick"><span onclick="startSolo(0)" id="pk0"></span><span onclick="startSolo(1)" id="pk1"></span></div>
+  <button class="grey" onclick="show('menu')">⬅️</button>
+</div>
+
 <div class="screen" id="setup">
-  <h2>Who's playing?</h2>
-  <div class="names"><input id="n1" value="Yu Xin" maxlength="10"><input id="n2" value="Nephew" maxlength="10"></div>
-  <p>🩷 pink rocket vs 💚 green rocket<br>3 rounds. Highest rocket wins a ⭐</p>
+  <div class="names" style="align-items:center;font-size:40px"><span id="su0"></span> 🆚 <span id="su1"></span></div>
+  <p>3 rounds. Highest rocket wins a ⭐</p>
   <button class="green" onclick="startCompete()">▶️ Start!</button>
   <button class="grey" onclick="show('menu')">⬅️ Back</button>
 </div>
 
 <div class="screen" id="ready">
   <div class="stars" id="readyStars"></div>
-  <div class="bigEmoji" id="readyRocket">🚀</div>
-  <div class="playerTag" id="readyWho"></div>
+  <div id="readyWho"></div>
+  <div style="font-size:60px" id="readyRocket">🚀</div>
   <button class="yellow" onclick="beginTurn()">🎤 GO!</button>
 </div>
 
@@ -82,7 +91,7 @@ button:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.3)}
   <div id="sky">
     <div class="flag" id="rival"><span>🚩</span></div>
     <div class="flag" id="best"><span>⭐</span></div>
-    <div id="rocketBox"><span id="rocket">🚀</span><span id="flame">🔥</span></div>
+    <div id="rocketBox"><span id="rider"></span><span id="rocket">🚀</span><span id="flame">🔥</span></div>
   </div>
   <div id="ground"></div>
   <div id="face">🤫</div>
@@ -91,7 +100,7 @@ button:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.3)}
 </div>
 
 <div class="screen" id="turnEnd">
-  <div class="playerTag" id="teWho"></div>
+  <div id="teWho"></div>
   <div class="bigEmoji" id="teMark"></div>
   <div class="stars" id="teStars"></div>
   <button class="yellow" id="teNext" onclick="next()">➡️</button>
@@ -125,6 +134,11 @@ const MARKS=[[.07,"🏠"],[.16,"🌳"],[.27,"🏢"],[.39,"☁️"],[.51,"🦅"],
 const SHOUT_SECS=5, ROUNDS=3;
 // Difficulty = how many dB above room noise counts as a "full power" shout
 const DIFF=[{range:22,start:5},{range:28,start:7},{range:34,start:9}];
+const AV=['<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="#ffe9c7"/><path d="M18 100c2-18 15-26 32-26s30 8 32 26z" fill="#3f7fd9"/><path d="M42 72h16v10H42z" fill="#e8b48c"/><circle cx="24" cy="52" r="6" fill="#e8b48c"/><circle cx="76" cy="52" r="6" fill="#e8b48c"/><ellipse cx="50" cy="50" rx="25" ry="28" fill="#f1c39b"/><path d="M24 46c-2-20 10-30 26-30s29 9 26 30c-3-8-7-13-12-14-6 4-20 5-30 1-5 2-8 7-10 13z" fill="#3b3b3b"/><path d="M26 44c0-8 3-14 7-18l2 3c-4 4-6 9-6 15z M74 44c0-8-3-14-7-18l-2 3c4 4 6 9 6 15z" fill="#e4e4e4"/><path d="M30 33c4-8 10-12 16-13M38 30c5-6 11-8 18-8M50 27c6-3 12-2 17 2M58 31c5 0 9 3 12 7" stroke="#e6e6e6" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M40 20c6-3 14-3 20 0-6 1-14 1-20 0z M52 23c5 0 9 1 12 3-4 0-8-1-12-3z M36 25c3-2 6-3 9-3-3 2-6 3-9 3z" fill="#dcdcdc"/><path d="M36 41h9 M55 41h9" stroke="#555" stroke-width="3" stroke-linecap="round"/><circle cx="41" cy="49" r="3.2" fill="#2b2b2b"/><circle cx="59" cy="49" r="3.2" fill="#2b2b2b"/><path d="M50 52l-3 8h6" fill="none" stroke="#c98d68" stroke-width="2" stroke-linecap="round"/><path d="M40 64c6 6 14 6 20 0" fill="none" stroke="#8a3b2a" stroke-width="3" stroke-linecap="round"/></svg>','<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="#d9f5ff"/><path d="M22 100c2-15 13-22 28-22s26 7 28 22z" fill="#ffc531"/><circle cx="21" cy="57" r="6" fill="#f3c7a2"/><circle cx="79" cy="57" r="6" fill="#f3c7a2"/><circle cx="50" cy="56" r="29" fill="#f8d4b2"/><path d="M21 52c-1-18 12-28 29-28s30 10 29 28c-6-9-16-13-29-13s-23 4-29 13z" fill="#2e2a28"/><path d="M48 25c-2-6 2-11 8-12-3 4-3 8 0 12z" fill="#2e2a28"/><circle cx="39" cy="56" r="6" fill="#fff"/><circle cx="61" cy="56" r="6" fill="#fff"/><circle cx="40" cy="57" r="4" fill="#2b2b2b"/><circle cx="62" cy="57" r="4" fill="#2b2b2b"/><circle cx="41.5" cy="55.5" r="1.4" fill="#fff"/><circle cx="63.5" cy="55.5" r="1.4" fill="#fff"/><circle cx="31" cy="67" r="5" fill="#ff9aa8" opacity=".6"/><circle cx="69" cy="67" r="5" fill="#ff9aa8" opacity=".6"/><path d="M42 69c4 6 12 6 16 0z" fill="#a83a3a"/></svg>'];
+function av(i,px){return `<span class="av" style="width:${px}px;height:${px}px;border-color:${i?'#22b573':'#ff3d7f'}">${AV[i]}</span>`}
+let soloP=0;
+function pickSolo(){$('pk0').innerHTML=av(0,130);$('pk1').innerHTML=av(1,130);show('pick')}
+$('su0').innerHTML=av(0,110);$('su1').innerHTML=av(1,110);
 let diff=1;function setDiff(d){diff=d;[...$('diff').children].forEach((b,i)=>b.classList.toggle('sel',i===d))}
 let ac,analyser,buf,mode,names,turn,roundH,stars,raf,floorDb=-55,soloBest=0;
 
@@ -150,15 +164,15 @@ function markFor(h){let e="🐌";MARKS.forEach(([mh,me])=>{if(h>=mh-0.01)e=me});
 function starsFor(h){return h>=.99?5:h>=.73?4:h>=.51?3:h>=.27?2:h>=.07?1:0}
 function starStr(n){return "⭐".repeat(n)+"<span style='opacity:.25'>"+"⭐".repeat(5-n)+"</span>"}
 
-async function startSolo(){if(!await initMic())return;mode=1;names=["Me"];turn=0;soloBest=0;readyScreen()}
-async function startCompete(){if(!await initMic())return;mode=2;names=[$('n1').value.trim()||"Pink",$('n2').value.trim()||"Green"];turn=0;stars=[0,0];roundH=[];readyScreen()}
-const who=()=>mode===1?0:turn%2, col=p=>mode===2&&p===1?"#22b573":"#ff3d7f";
-function readyScreen(){const p=who();$('readyWho').textContent=names[p];$('readyWho').style.background=col(p);
-  $('readyRocket').style.filter=p===1&&mode===2?"hue-rotate(110deg)":"none";
+async function startSolo(i){if(i!==undefined)soloP=i;if(!await initMic())return;mode=1;names=["Me"];turn=0;soloBest=0;readyScreen()}
+async function startCompete(){if(!await initMic())return;mode=2;names=["",""];turn=0;stars=[0,0];roundH=[];readyScreen()}
+const who=()=>mode===1?0:turn%2, ai=p=>mode===1?soloP:p, col=p=>ai(p)===1?"#22b573":"#ff3d7f";
+function readyScreen(){const p=who();$('readyWho').innerHTML=av(ai(p),170);
+  $('readyRocket').style.filter=ai(p)===1?"hue-rotate(110deg)":"none";
   $('readyStars').innerHTML=mode===2?"🩷"+"⭐".repeat(stars[0])+" &nbsp; 💚"+"⭐".repeat(stars[1]):"";show('ready')}
 
 function beginTurn(){if(ac.state==="suspended")ac.resume();show('play');const p=who();
-  $('rocket').style.filter=p===1&&mode===2?"hue-rotate(110deg)":"none";
+  $('rocket').style.filter=ai(p)===1?"hue-rotate(110deg)":"none";$('rider').innerHTML=av(ai(p),46);
   setRocket(0,0);$('fuseIn').style.width="100%";$('bigMsg').textContent="";$('face').textContent="🤫";
   document.querySelectorAll('.mark').forEach(m=>m.classList.remove('hit'));
   // flags: your best (solo) or the other player's height this round (compete)
@@ -196,7 +210,7 @@ function endTurn(h,moon){const p=who();$('rocketBox').classList.remove('shake');
   setTimeout(()=>{
     if(mode===1){soloBest=Math.max(soloBest,h)}
     else{if(!roundH[rnd()])roundH[rnd()]=[0,0];roundH[rnd()][p]=h}
-    $('teWho').textContent=names[p];$('teWho').style.background=col(p);
+    $('teWho').innerHTML=av(ai(p),110);
     $('teMark').textContent=markFor(h);$('teStars').innerHTML=starStr(starsFor(h));
     show('turnEnd')},moon?1800:600)}
 function next(){if(mode===1){readyScreen();return}
@@ -204,16 +218,16 @@ function next(){if(mode===1){readyScreen();return}
 function roundResult(){const [a,b]=roundH[rnd()];const sky=$('miniSky');let html="";
   MARKS.forEach(([h,e])=>html+=`<div class="mk" style="bottom:${h*88+4}%">${e}</div>`);
   html+=`<div class="r" style="left:30%;bottom:${a*88+4}%">🚀</div><div class="r" style="left:62%;bottom:${b*88+4}%;filter:hue-rotate(110deg)">🚀</div>`;
+  html+=`<div style="position:absolute;left:30%;bottom:${a*88+4}%;transform:translate(-120%,40%)">${av(0,40)}</div><div style="position:absolute;left:62%;bottom:${b*88+4}%;transform:translate(-120%,40%)">${av(1,40)}</div>`;
   const tie=Math.abs(a-b)<0.015;
   if(tie){stars[0]++;stars[1]++}else stars[a>b?0:1]++;
   if(!tie){const w=a>b?0:1;html+=`<div class="crown" style="left:${w?62:30}%;bottom:${(w?b:a)*88+4}%;transform:translate(-50%,-110%)">👑</div>`}
   sky.innerHTML=html;
-  $('scoreRows').innerHTML=[0,1].map(p=>`<div class="stars"><span class="playerTag" style="background:${col(p)};font-size:22px;padding:4px 14px">${names[p]}</span> ${"⭐".repeat(stars[p])}</div>`).join("");
+  $('scoreRows').innerHTML=[0,1].map(p=>`<div class="stars">${av(p,56)} ${"⭐".repeat(stars[p])}</div>`).join("");
   show('roundEnd');snd(500,1000,.3);if(!tie)confetti(1200)}
 function next2(){turn++;if(rnd()>=ROUNDS){winner();return}readyScreen()}
-function winner(){let txt,em;if(stars[0]===stars[1]){txt="TIE! 🤝";em="🤝"}else{const w=stars[0]>stars[1]?0:1;txt=names[w]+"!";em="🏆"}
-  $('winText').textContent=txt;$('winEmoji').textContent=em;
-  $('winRows').innerHTML=[0,1].map(p=>`<div class="stars"><span class="playerTag" style="background:${col(p)};font-size:22px;padding:4px 14px">${names[p]}</span> ${"⭐".repeat(stars[p])}</div>`).join("");
+function winner(){if(stars[0]===stars[1]){$('winText').textContent="🤝";$('winEmoji').innerHTML=av(0,120)+" "+av(1,120)}else{const w=stars[0]>stars[1]?0:1;$('winText').textContent="🏆🏆🏆";$('winEmoji').innerHTML=av(w,170)}
+  $('winRows').innerHTML=[0,1].map(p=>`<div class="stars">${av(p,56)} ${"⭐".repeat(stars[p])}</div>`).join("");
   show('win');fanfare();confetti(4500)}
 function again(){mode===2?startCompete():startSolo()}
 
